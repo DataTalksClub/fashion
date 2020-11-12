@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import bs4
+import re
 
 
 def init_attribute_holders(attributes_for_selection, attribute_values):
@@ -22,18 +23,18 @@ def fill_in_not_updated_attributes(not_updated_attributes, attribute_values):
         attribute_values[attribute].append(None)
 
 
-def scrap_page(link, attributes_for_selection, attribute_values):
+def scrap_item_page(link, attributes_for_selection, attribute_values):
     page = requests.get(link)
     # check the page status; if success then it should be 200
     if page.status_code != 200:
         return
     soup = BeautifulSoup(page.content, 'html.parser')
     # this selector gets the tag where the main image is located
-    main_image_element = soup.select('img#J-dcv-image-trigger')[0]
+    main_image_element = soup.select_one('img#J-dcv-image-trigger')
     #!TODO not all descriptions have an image, some have only video. The logic need to be updated for that case
-    attribute_values["image_link"] = main_image_element["data-src"]
+    attribute_values["image_link"].append(main_image_element["data-src"])
     # the following element contains product details; 0 element is the list of details
-    details = soup.select('div.do-entry-list')[0]
+    details = soup.select_one('div.do-entry-list')
     not_updates_attributes = set(attributes_for_selection)
     for detail in details:
         # There are strings in the details list too, this condition prevents them from scrapping
@@ -47,6 +48,22 @@ def scrap_page(link, attributes_for_selection, attribute_values):
     return
 
 
+def scrap_seller_page(init_link, attributes_for_selection, attribute_values):
+    page = requests.get(init_link)
+    seller_main_page = re.search("https://[\w\.]+", init_link).group(0)
+    # check the page status; if success then it should be 200
+    if page.status_code != 200:
+        return
+    soup = BeautifulSoup(page.content, 'html.parser')
+    product_list = soup.select_one('div.component-product-list')
+    items = product_list.select('div.product-info')
+    item_links = []
+    for item in items:
+        item_links.append(seller_main_page + item.select_one('a.title-link')['href'])
+    for item_link in item_links:
+        scrap_item_page(item_link, attributes_for_selection, attribute_values)
+
+
 def scrap_pages(init_link):
     attributes_for_selection = ["Style", "Collar", "Season", "Fabric type",
                                 "Product Name", "Gender", "Product Type", "Item Type"]
@@ -54,4 +71,4 @@ def scrap_pages(init_link):
     all_attributes = attributes_for_selection + ["image_link"]
     attribute_values = {}
     init_attribute_holders(all_attributes, attribute_values)
-    scrap_page(init_link, attributes_for_selection, attribute_values)
+    scrap_seller_page(init_link, attributes_for_selection, attribute_values)
