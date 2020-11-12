@@ -48,13 +48,20 @@ def scrap_item_page(link, attributes_for_selection, attribute_values):
     return
 
 
-def scrap_seller_page(init_link, attributes_for_selection, attribute_values):
-    page = requests.get(init_link)
-    seller_main_page = re.search("https://[\w\.]+", init_link).group(0)
+def scrap_seller_page(item_list_link, seller_main_page, current_page_number, attributes_for_selection, attribute_values):
+    page = requests.get(item_list_link)
     # check the page status; if success then it should be 200
     if page.status_code != 200:
         return
     soup = BeautifulSoup(page.content, 'html.parser')
+    pagination_list = soup.select_one('div.next-pagination-list')
+    other_pages = pagination_list.select('a.next-pagination-item')
+    for page in other_pages:
+        # the next page number must be higher than the current.
+        # since page number are shown in ascending order, this check will allow to select only the next page
+        if int(page.text) > current_page_number:
+            next_page_link = seller_main_page + page["href"]
+            break
     product_list = soup.select_one('div.component-product-list')
     items = product_list.select('div.product-info')
     item_links = []
@@ -62,6 +69,23 @@ def scrap_seller_page(init_link, attributes_for_selection, attribute_values):
         item_links.append(seller_main_page + item.select_one('a.title-link')['href'])
     for item_link in item_links:
         scrap_item_page(item_link, attributes_for_selection, attribute_values)
+    return next_page_link
+
+
+def scrap_init_page(init_link, attributes_for_selection, attribute_values):
+    page = requests.get(init_link)
+    seller_main_page = re.search("https://[\w\.]+", init_link).group(0)
+    # check the page status; if success then it should be 200
+    if page.status_code != 200:
+        return
+    # the initial page is the first page with items
+    next_seller_page = init_link
+    # initial page is 1
+    current_page_number = 1
+    while next_seller_page is not None:
+        next_seller_page = scrap_seller_page(next_seller_page, seller_main_page, current_page_number,
+                                             attributes_for_selection, attribute_values)
+        current_page_number += 1
 
 
 def scrap_pages(init_link):
@@ -71,5 +95,5 @@ def scrap_pages(init_link):
     all_attributes = attributes_for_selection + ["image_link"]
     attribute_values = {}
     init_attribute_holders(all_attributes, attribute_values)
-    scrap_seller_page(init_link, attributes_for_selection, attribute_values)
+    scrap_init_page(init_link, attributes_for_selection, attribute_values)
     return pd.DataFrame.from_dict(attribute_values)
