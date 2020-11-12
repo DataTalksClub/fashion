@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import bs4
 import re
+import pandas as pd
 
 
 def init_attribute_holders(attributes_for_selection, attribute_values):
@@ -44,7 +45,6 @@ def scrap_item_page(link, attributes_for_selection, attribute_values):
                 not_updates_attributes.remove(updated_attribute)
     # to make the length of a list of values the same for a postprocessing step, not present values are updated as well
     fill_in_not_updated_attributes(not_updates_attributes, attribute_values)
-    print(attribute_values)
     return
 
 
@@ -72,3 +72,4 @@ def scrap_pages(init_link):
     attribute_values = {}
     init_attribute_holders(all_attributes, attribute_values)
     scrap_seller_page(init_link, attributes_for_selection, attribute_values)
+    return pd.DataFrame.from_dict(attribute_values)
