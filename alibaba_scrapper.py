@@ -32,7 +32,9 @@ def scrap_item(link, attributes_for_selection, attribute_values):
     soup = BeautifulSoup(page.content, 'html.parser')
     # this selector gets the tag where the main image is located
     main_image_element = soup.select_one('img#J-dcv-image-trigger')
-    #!TODO not all descriptions have an image, some have only video. The logic need to be updated for that case
+    # to check if the image element exists'(some pages have video instead)
+    if main_image_element is None:
+        return
     attribute_values["image_link"].append(main_image_element["data-src"])
     # the following element contains product details; 0 element is the list of details
     details = soup.select_one('div.do-entry-list')
@@ -48,20 +50,18 @@ def scrap_item(link, attributes_for_selection, attribute_values):
     return
 
 
-def scrap_items_page(item_list_link, seller_main_page, current_page_number, attributes_for_selection, attribute_values):
-    page = requests.get(item_list_link)
-    # check the page status; if success then it should be 200
-    if page.status_code != 200:
-        return
-    soup = BeautifulSoup(page.content, 'html.parser')
+def get_next_page_link(soup, current_page_number, seller_main_page):
     pagination_list = soup.select_one('div.next-pagination-list')
-    other_pages = pagination_list.select('a.next-pagination-item')
-    for page in other_pages:
+    displayed_pages = pagination_list.select('a.next-pagination-item')
+    for page in displayed_pages:
         # the next page number must be higher than the current.
         # since page number are shown in ascending order, this check will allow to select only the next page
         if int(page.text) > current_page_number:
             next_page_link = seller_main_page + page["href"]
-            break
+            return next_page_link
+
+
+def scrap_items(soup, attributes_for_selection, attribute_values, seller_main_page):
     product_list = soup.select_one('div.component-product-list')
     items = product_list.select('div.product-info')
     item_links = []
@@ -69,6 +69,16 @@ def scrap_items_page(item_list_link, seller_main_page, current_page_number, attr
         item_links.append(seller_main_page + item.select_one('a.title-link')['href'])
     for item_link in item_links:
         scrap_item(item_link, attributes_for_selection, attribute_values)
+
+
+def scrap_items_page(item_list_link, seller_main_page, current_page_number, attributes_for_selection, attribute_values):
+    page = requests.get(item_list_link)
+    # check the page status; if success then it should be 200
+    if page.status_code != 200:
+        return
+    soup = BeautifulSoup(page.content, 'html.parser')
+    scrap_items(soup, attributes_for_selection, attribute_values, seller_main_page)
+    next_page_link = get_next_page_link(soup, current_page_number, seller_main_page)
     return next_page_link
 
 
