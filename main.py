@@ -1,9 +1,10 @@
-from alibaba_scrapper import scrap_pages
-
+from alibaba_scrapper import scrap_sellers
+import config
 
 def main():
-    link = "https://winfashionsh.en.alibaba.com/productgrouplist-821093228/women_s_pullover_sweater.html?spm=a2700.icbuShop.74.1.35235f8eeXswX2"
-    scrap_pages(link)
+    sellers_to_scrap = config.sellers_to_scrap
+    tags_for_selection = config.tags_for_selection
+    scrap_sellers(sellers_to_scrap, tags_for_selection)
 
 
 if __name__ == '__main__':

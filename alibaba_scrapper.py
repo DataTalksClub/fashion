@@ -24,7 +24,7 @@ def fill_in_not_updated_attributes(not_updated_attributes, attribute_values):
         attribute_values[attribute].append(None)
 
 
-def scrap_item_page(link, attributes_for_selection, attribute_values):
+def scrap_item(link, attributes_for_selection, attribute_values):
     page = requests.get(link)
     # check the page status; if success then it should be 200
     if page.status_code != 200:
@@ -48,7 +48,7 @@ def scrap_item_page(link, attributes_for_selection, attribute_values):
     return
 
 
-def scrap_seller_page(item_list_link, seller_main_page, current_page_number, attributes_for_selection, attribute_values):
+def scrap_items_page(item_list_link, seller_main_page, current_page_number, attributes_for_selection, attribute_values):
     page = requests.get(item_list_link)
     # check the page status; if success then it should be 200
     if page.status_code != 200:
@@ -68,11 +68,11 @@ def scrap_seller_page(item_list_link, seller_main_page, current_page_number, att
     for item in items:
         item_links.append(seller_main_page + item.select_one('a.title-link')['href'])
     for item_link in item_links:
-        scrap_item_page(item_link, attributes_for_selection, attribute_values)
+        scrap_item(item_link, attributes_for_selection, attribute_values)
     return next_page_link
 
 
-def scrap_init_page(init_link, attributes_for_selection, attribute_values):
+def scrap_init_seller_page(init_link, attributes_for_selection, attribute_values):
     page = requests.get(init_link)
     seller_main_page = re.search("https://[\w\.]+", init_link).group(0)
     # check the page status; if success then it should be 200
@@ -83,17 +83,17 @@ def scrap_init_page(init_link, attributes_for_selection, attribute_values):
     # initial page is 1
     current_page_number = 1
     while next_seller_page is not None:
-        next_seller_page = scrap_seller_page(next_seller_page, seller_main_page, current_page_number,
-                                             attributes_for_selection, attribute_values)
+        next_seller_page = scrap_items_page(next_seller_page, seller_main_page, current_page_number,
+                                            attributes_for_selection, attribute_values)
         current_page_number += 1
 
 
-def scrap_pages(init_link):
-    attributes_for_selection = ["Style", "Collar", "Season", "Fabric type",
-                                "Product Name", "Gender", "Product Type", "Item Type"]
+def scrap_sellers(seller_links, tags_for_selection):
     # to prevent the image link to be scrapped as a text attribute, an additional holder for the link is created
-    all_attributes = attributes_for_selection + ["image_link"]
+    all_attributes = tags_for_selection + ["image_link"]
     attribute_values = {}
     init_attribute_holders(all_attributes, attribute_values)
-    scrap_init_page(init_link, attributes_for_selection, attribute_values)
+    # tags for selection doesn't include image. Image is processed separately
+    for link in seller_links:
+        scrap_init_seller_page(link, tags_for_selection, attribute_values)
     return pd.DataFrame.from_dict(attribute_values)
